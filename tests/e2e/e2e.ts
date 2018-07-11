@@ -7,6 +7,7 @@ import palindromeChecker from './apps/palindrome-checker/test.spec'
 import userInfo from './apps/user-info/test.spec'
 import fibonacciSequence from './apps/fibonacci-sequence/test.spec'
 import crudTable from './apps/crud-table/test.spec'
+import helloApi from './apps/hello-api/test.spec'
 
 import * as path from 'path'
 import { readFileSync } from 'fs'
@@ -19,19 +20,22 @@ Error.stackTraceLimit = Infinity
 
 async function run () {
   // Basic apps with basic components, inputs, outputs, events.
-  await helloWorldBasic()
-  await helloWorldWithBinding()
-  await counter()
-  await counterWithBoundaries()
-  await twoCounters()
+  // await helloWorldBasic()
+  // await helloWorldWithBinding()
+  // await counter()
+  // await counterWithBoundaries()
+  // await twoCounters()
+  //
+  // // Basic usages of w:if
+  // await palindromeChecker()
+  // await userInfo()
+  //
+  // // Basic usages of w:for
+  // await fibonacciSequence()
+  // await crudTable()
 
-  // Basic usages of w:if
-  await palindromeChecker()
-  await userInfo()
-
-  // Basic usages of w:for
-  await fibonacciSequence()
-  await crudTable()
+  // Basic usages of promises
+  await helloApi()
 }
 
 async function reportSizes () {
@@ -45,6 +49,7 @@ async function reportSizes () {
     'user-info',
     'fibonacci-sequence',
     'crud-table',
+    'hello-api',
   ]
 
   const table = new Table({
