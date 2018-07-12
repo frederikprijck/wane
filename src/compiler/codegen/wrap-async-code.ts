@@ -9,14 +9,18 @@ import {
   TypeGuards
 } from 'ts-simple-ast'
 
-export function expandArrowFunction (arrowFunction: ArrowFunction): void {
+/**
+ * @param {ArrowFunction} arrowFunction
+ * @returns {boolean} Has any transformation been done?
+ */
+export function expandArrowFunction (arrowFunction: ArrowFunction): boolean {
 
   const equalsGreaterThen = arrowFunction.getEqualsGreaterThan()
   const nextNode = equalsGreaterThen.getNextSiblingOrThrow()
 
   // If the function already has a block (is expanded), we bail out.
   if (TypeGuards.isBlock(nextNode)) {
-    return
+    return false
   }
 
   // If the returned value is parenthesized expression, we strip away the parenthesis.
@@ -36,9 +40,15 @@ export function expandArrowFunction (arrowFunction: ArrowFunction): void {
       .write(`}`)
   })
 
+  return true
+
 }
 
-export function expandCallback (syntaxList: SyntaxList): void {
+/**
+ * @param {SyntaxList} syntaxList
+ * @returns {boolean} Was a transformation made?
+ */
+export function expandCallback (syntaxList: SyntaxList): boolean {
 
   console.assert(syntaxList.getChildCount() == 1, `Expected SyntaxList to have a single child.`)
   const node = syntaxList.getFirstChildOrThrow()
@@ -55,14 +65,16 @@ export function expandCallback (syntaxList: SyntaxList): void {
         })
         .write(`}`)
     })
-    return
+    return true
   }
 
   // An arrow function, we delegate this.
   if (TypeGuards.isArrowFunction(node)) {
     expandArrowFunction(node)
-    return
+    return true
   }
+
+  return false
 
 }
 
@@ -109,11 +121,9 @@ export function injectConstructorParam (
 
 }
 
-export function getCalledMethods () {
+function processClassDeclaration (classDeclaration: ClassDeclaration, injectCode: (syntaxList: SyntaxList) => (writer: CodeBlockWriter) => void): boolean {
 
-}
-
-function processClassDeclaration (classDeclaration: ClassDeclaration) {
+  let needsInjection = false
 
   const methods = classDeclaration.getMethods()
   for (const method of methods) {
@@ -129,26 +139,33 @@ function processClassDeclaration (classDeclaration: ClassDeclaration) {
         continue
       }
 
-      const syntaxList = propAccessExpression.getNextSibling(node => {
-        return node.getKind() == SyntaxKind.SyntaxList
-      })
+      const syntaxList = propAccessExpression.getNextSibling(TypeGuards.isSyntaxList) as SyntaxList | undefined
+      console.assert(syntaxList != null)
 
-      console.log(syntaxList && syntaxList.getText())
+      needsInjection = expandCallback(syntaxList!) || needsInjection
+      injectCodeInExpandedFunction(syntaxList!, injectCode(syntaxList!))
 
     }
 
   }
 
+  if (needsInjection) {
+    injectConstructorParam(classDeclaration, Scope.Private, '__wane__factory', 'any')
+    return true
+  }
+
+  return false
+
 }
 
-export default function processProject (project: Project): void {
+export default function processProject (project: Project, injectCode: (syntaxList: SyntaxList) => (writer: CodeBlockWriter) => void): void {
 
   const sourceFiles = project.getSourceFiles()
   for (const sourceFile of sourceFiles) {
 
     const classDeclarations = sourceFile.getClasses()
     for (const classDeclaration of classDeclarations) {
-      processClassDeclaration(classDeclaration)
+      processClassDeclaration(classDeclaration, injectCode)
     }
 
   }

@@ -1,10 +1,10 @@
 import Project, { IndentationText, Scope, SourceFile, SyntaxKind } from "ts-simple-ast";
 import { stripIndent } from "common-tags";
-import {
+import wrapAsyncCode, {
   expandArrowFunction,
   expandCallback,
   injectCodeInExpandedFunction,
-  injectConstructorParam
+  injectConstructorParam,
 } from "./wrap-async-code";
 
 export function createProjectFromString (fileContent: string): {
@@ -231,38 +231,89 @@ fdescribe(`wrap-async-code`, () => {
   })
 
 
-  const source = stripIndent`
-  export class Foo {
-    
-    p1
-    p2
-    p3
-    p4
-  
-    m1 () {
-      this.p1 = 1
-      fetch()
-      .then(r => {
-        console.log(r)
-        return r
-      })
-      .then(r => r.toString())
-      .then(this.setP1.bind(this))
-      .then(r => this.p2 = r)
-      .then(r => {
-        this.p3 = r
-        return 2
-      })
-      .catch(err => {
-        this.p4 = 1
-      })
+  describe(`wrapAsyncCode`, () => {
+
+    function testTransform (before: string, after: string) {
+      const { project, sourceFile } = createProjectFromString(before)
+      wrapAsyncCode(project, () => writer => writer.writeLine(`// inject`))
+      expect(sourceFile.getFullText()).toBe(after)
     }
-  
-    setP1 (newP1) {
-      return this.p1 = newP1
-    }
-  
-  }
-`
+
+    const source = stripIndent`
+      export class Foo {
+        
+        p1
+        p2
+        p3
+        p4
+      
+        m1 () {
+          this.p1 = 1
+          fetch()
+          .then(r => {
+            console.log(r)
+            return r
+          })
+          .then(r => r.toString())
+          .then(this.setP1.bind(this))
+          .then(r => this.p2 = r)
+          .then(r => {
+            this.p3 = r
+            return 2
+          })
+          .catch(err => {
+            this.p4 = 1
+          })
+        }
+      
+        setP1 (newP1) {
+          return this.p1 = newP1
+        }
+      
+      }
+    `
+
+    it(`does nothing when there are no promises in code`, () => {
+      const before = stripIndent`
+        export class Foo {
+          p1 = 1
+          then () {
+            this.p1 = 11
+          }
+        }
+      `
+      testTransform(before, before)
+    })
+
+    fit(`injects into constructor and wraps callbacks`, () => {
+      const before = stripIndent`
+        export class Foo {
+          m1 () { }
+          m2 () {
+            fetchData().then(data => {
+              this.m1()
+            })
+          }
+        }
+      `
+      const after = stripIndent`
+        export class Foo {
+          constructor (injected: Injected) { }
+          m1 () { }
+          m2 () {
+            fetchData().then((...args: any[]) => {
+              const __wane__result = (data => {
+                this.m1()
+              })(...args)
+              // injected code
+              return __wane__result
+            })
+          }
+        }
+      `
+      testTransform(before, after)
+    })
+
+  })
 
 })
