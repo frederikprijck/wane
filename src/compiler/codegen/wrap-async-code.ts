@@ -3,6 +3,7 @@ import {
   ClassDeclaration,
   CodeBlockWriter,
   default as Project,
+  Scope,
   SyntaxKind,
   SyntaxList,
   TypeGuards
@@ -80,6 +81,31 @@ export function injectCodeInExpandedFunction (syntaxList: SyntaxList, injectCode
       })
       .write(`}`)
   })
+
+}
+
+export function injectConstructorParam (
+  classDeclaration: ClassDeclaration,
+  scope: Scope | undefined,
+  name: string,
+  type: string,
+): void {
+
+  const text = `${scope ? scope + ' ' : ''}${name}: ${type}`
+
+  const syntaxList = classDeclaration.getFirstDescendantByKindOrThrow(SyntaxKind.SyntaxList)
+  const constructorNode = syntaxList.getFirstDescendantByKind(SyntaxKind.Constructor)
+
+  // No constructor
+  if (constructorNode == null) {
+    syntaxList.insertChildText(0, writer => {
+      writer.write(`constructor (${text}) { }`)
+    })
+    return
+  }
+
+  // Constructor exists
+  constructorNode.addParameter({ scope, name, type })
 
 }
 

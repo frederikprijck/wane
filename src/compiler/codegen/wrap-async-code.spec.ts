@@ -1,6 +1,11 @@
-import Project, { IndentationText, SourceFile, SyntaxKind } from "ts-simple-ast";
+import Project, { IndentationText, Scope, SourceFile, SyntaxKind } from "ts-simple-ast";
 import { stripIndent } from "common-tags";
-import { expandArrowFunction, expandCallback, injectCodeInExpandedFunction } from "./wrap-async-code";
+import {
+  expandArrowFunction,
+  expandCallback,
+  injectCodeInExpandedFunction,
+  injectConstructorParam
+} from "./wrap-async-code";
 
 export function createProjectFromString (fileContent: string): {
   project: Project,
@@ -167,6 +172,64 @@ fdescribe(`wrap-async-code`, () => {
     })
 
   })
+
+
+  describe(`injectConstructorParam`, () => {
+
+    it(`works when there is no constructor`, () => {
+      const code = stripIndent`
+        class Klass {
+          prop1 = 1
+        }
+      `
+      const { sourceFile } = createProjectFromString(code)
+      const classDeclaration = sourceFile.getFirstDescendantByKindOrThrow(SyntaxKind.ClassDeclaration)
+      injectConstructorParam(classDeclaration, Scope.Private, '__wane__factory', 'any')
+      const expected = stripIndent`
+        class Klass {
+          constructor (private __wane__factory: any) { }
+          prop1 = 1
+        }
+      `
+      expect(sourceFile.getFullText()).toBe(expected)
+    })
+
+    it(`works when there is an empty constructor`, () => {
+      const code = stripIndent`
+        class Klass {
+          constructor () { }
+        }
+      `
+      const { sourceFile } = createProjectFromString(code)
+      const classDeclaration = sourceFile.getFirstDescendantByKindOrThrow(SyntaxKind.ClassDeclaration)
+      injectConstructorParam(classDeclaration, Scope.Private, '__wane__factory', 'any')
+      const expected = stripIndent`
+        class Klass {
+          constructor (private __wane__factory: any) { }
+        }
+      `
+      expect(sourceFile.getFullText()).toBe(expected)
+    })
+
+    it(`works whn there is a constructor with arguments`, () => {
+      const code = stripIndent`
+        class Klass {
+          constructor (foo: Foo, bar: Bar) { }
+        }
+      `
+      const { sourceFile } = createProjectFromString(code)
+      const classDeclaration = sourceFile.getFirstDescendantByKindOrThrow(SyntaxKind.ClassDeclaration)
+      injectConstructorParam(classDeclaration, Scope.Private, '__wane__factory', 'any')
+      const expected = stripIndent`
+        class Klass {
+          constructor (foo: Foo, bar: Bar, private __wane__factory: any) { }
+        }
+      `
+      expect(sourceFile.getFullText()).toBe(expected)
+    })
+
+  })
+
 
   const source = stripIndent`
   export class Foo {
