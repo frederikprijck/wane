@@ -40,15 +40,15 @@ async function run () {
 
 async function reportSizes () {
   const apps = [
-    'hello-world-basic',
-    'hello-world-with-binding',
-    'counter',
-    'counter-with-boundaries',
-    'two-counters',
-    'palindrome-checker',
-    'user-info',
-    'fibonacci-sequence',
-    'crud-table',
+    // 'hello-world-basic',
+    // 'hello-world-with-binding',
+    // 'counter',
+    // 'counter-with-boundaries',
+    // 'two-counters',
+    // 'palindrome-checker',
+    // 'user-info',
+    // 'fibonacci-sequence',
+    // 'crud-table',
     'hello-api',
   ]
 
