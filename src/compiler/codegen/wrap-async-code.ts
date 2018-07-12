@@ -1,5 +1,12 @@
-import { ArrowFunction, ClassDeclaration, default as Project, SyntaxKind, SyntaxList, TypeGuards } from 'ts-simple-ast'
-import { assert } from 'chai'
+import {
+  ArrowFunction,
+  ClassDeclaration,
+  CodeBlockWriter,
+  default as Project,
+  SyntaxKind,
+  SyntaxList,
+  TypeGuards
+} from 'ts-simple-ast'
 
 export function expandArrowFunction (arrowFunction: ArrowFunction): void {
 
@@ -55,6 +62,24 @@ export function expandCallback (syntaxList: SyntaxList): void {
     expandArrowFunction(node)
     return
   }
+
+}
+
+export function injectCodeInExpandedFunction (syntaxList: SyntaxList, injectCode: (writer: CodeBlockWriter) => any): void {
+
+  console.assert(syntaxList.getChildCount() == 1, `Expected SyntaxList to have a single child.`)
+  const node = syntaxList.getFirstChildOrThrow()
+
+  node.replaceWithText(writer => {
+    writer
+      .write(`(...args: any[]) => {`)
+      .indentBlock(() => {
+        writer.writeLine(`const __wane__result = (${node.getText()})(...args)`)
+        injectCode(writer)
+        writer.writeLine(`return __wane__result`)
+      })
+      .write(`}`)
+  })
 
 }
 

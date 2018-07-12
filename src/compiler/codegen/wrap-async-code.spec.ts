@@ -1,6 +1,6 @@
 import Project, { IndentationText, SourceFile, SyntaxKind } from "ts-simple-ast";
 import { stripIndent } from "common-tags";
-import { expandArrowFunction, expandCallback } from "./wrap-async-code";
+import { expandArrowFunction, expandCallback, injectCodeInExpandedFunction } from "./wrap-async-code";
 
 export function createProjectFromString (fileContent: string): {
   project: Project,
@@ -112,6 +112,55 @@ fdescribe(`wrap-async-code`, () => {
       const expected = stripIndent`
         callback(() => {
           return 42
+        })
+      `
+      expect(sourceFile.getFullText()).toBe(expected)
+    })
+
+  })
+
+
+  describe(`injectCodeInExpandedFunction`, () => {
+
+    it(`injects code in arrow function`, () => {
+      const code = stripIndent`
+        callback(() => {
+          return 42
+        })
+      `
+      const { sourceFile } = createProjectFromString(code)
+      const callExpression = sourceFile.getFirstDescendantByKindOrThrow(SyntaxKind.CallExpression)
+      const syntaxList = callExpression.getFirstDescendantByKindOrThrow(SyntaxKind.SyntaxList)
+      injectCodeInExpandedFunction(syntaxList, w => w.writeLine(`// injected`))
+      const expected = stripIndent`
+        callback((...args: any[]) => {
+          const __wane__result = (() => {
+            return 42
+          })(...args)
+          // injected
+          return __wane__result
+        })
+      `
+      expect(sourceFile.getFullText()).toBe(expected)
+    })
+
+    it(`injects code in a function`, () => {
+      const code = stripIndent`
+        callback(function named () {
+          return 42
+        })
+      `
+      const { sourceFile } = createProjectFromString(code)
+      const callExpression = sourceFile.getFirstDescendantByKindOrThrow(SyntaxKind.CallExpression)
+      const syntaxList = callExpression.getFirstDescendantByKindOrThrow(SyntaxKind.SyntaxList)
+      injectCodeInExpandedFunction(syntaxList, w => w.writeLine(`// injected`))
+      const expected = stripIndent`
+        callback((...args: any[]) => {
+          const __wane__result = (function named () {
+            return 42
+          })(...args)
+          // injected
+          return __wane__result
         })
       `
       expect(sourceFile.getFullText()).toBe(expected)
